@@ -129,25 +129,43 @@ scopes → repeat for the second child → tap **⟳ Sync**.
 
 ---
 
-## Android app
+## Android app (fully independent — no server needed)
 
-A native Android shell (in `android/`) wraps the app with persistent login,
-pull-to-refresh and back navigation. GitHub Actions builds the APK on every
-push that touches `android/`:
+The native Android app (`android/`, Kotlin + Jetpack Compose) is completely
+self-contained: **Sign in with Google on the phone → it fetches Classroom
+directly → everything stays on the device.** Background sync every ~6 hours
+with notifications for items due today/tomorrow.
+
+### One-time Google setup for the Android app
+
+The app authenticates natively (no client secret in the app), which needs an
+**Android-type OAuth client** in the same Google Cloud project:
+
+1. Google Cloud console → **APIs & Services → Credentials → Create
+   credentials → OAuth client ID → Android**.
+2. Package name: `com.parentops.app`
+3. SHA-1 certificate fingerprint (the repo's shared signing key):
+
+   ```
+   95:11:DB:29:63:EF:54:4D:82:71:AE:0A:E2:5E:99:44:81:52:F9:1E
+   ```
+
+4. Make sure the OAuth consent screen is in **Testing** with both kids'
+   school emails as test users, and the **Google Classroom API** is enabled.
+
+### Install and use
 
 1. GitHub → **Actions** → latest **Build Android APK** run → download the
-   **parentops-apk** artifact (unzip it to get `app-debug.apk`).
-2. Copy it to the phone and open it (allow "install from unknown sources").
-3. First launch asks for your server address — the `http://YOUR-PC-IP:8000`
-   shown when `run.bat` starts (phone must be on the same Wi-Fi), or your
-   deployed https:// URL.
-4. Enter your household PIN once; it stays signed in.
+   **parentops-apk** artifact (unzip → `app-debug.apk`), install on the phone.
+2. Open the app → **Sign in with Google** → pick/enter the first child's
+   school account → approve the read-only Classroom access.
+3. Repeat "add a child" in Settings for the second child.
+4. Done — it syncs immediately and then every ~6 hours in the background.
 
-Note: **linking a child's Google account opens in the phone's browser** —
-Google blocks OAuth inside embedded WebViews. Easiest is to do the one-time
-linking from your computer; day-to-day use is all in the app.
+The web app (`app/`, below) remains available as a desktop/laptop companion —
+same features, same household, but the Android app does not need it.
 
-An iOS shell (WKWebView, same pattern) is planned — it needs a Mac with
+An iOS app (same architecture, Swift) is planned; it requires a Mac with
 Xcode to build, unlike the Android CI build.
 
 ## Configuration
