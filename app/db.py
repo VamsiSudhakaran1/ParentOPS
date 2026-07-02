@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS posts (
     extracted INTEGER NOT NULL DEFAULT 0,
     UNIQUE(child_id, kind, google_id)
 );
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY,
     post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
@@ -67,6 +71,25 @@ def init_db():
             c.execute("ALTER TABLE items ADD COLUMN category TEXT")
         except sqlite3.OperationalError:
             pass
+
+
+# ---------- settings ----------
+
+def get_setting(key, default=None):
+    with conn() as c:
+        r = c.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+        return r["value"] if r else default
+
+
+def set_setting(key, value):
+    with conn() as c:
+        c.execute("INSERT INTO settings (key, value) VALUES (?,?)"
+                  " ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
+
+
+def delete_setting(key):
+    with conn() as c:
+        c.execute("DELETE FROM settings WHERE key=?", (key,))
 
 
 # ---------- children ----------

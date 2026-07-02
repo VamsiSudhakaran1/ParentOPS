@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ParentOps — Welcome</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="wrap gatepage">
+  <div class="gatecard">
+    <div class="brand" style="font-size:26px;text-align:center">Parent<span>Ops</span></div>
+    <p class="muted" style="text-align:center;margin:8px 0 4px">Welcome! One quick step:</p>
+    <p style="font-size:14px;text-align:center;margin-bottom:18px">
+      Set a household PIN. Anyone opening the app — on this machine or your
+      phone — will need it. Your kids' school data stays private.</p>
+    {% if error %}<div class="notice" style="margin-bottom:12px">{{ error }}</div>{% endif %}
+    <form method="post" action="/setup">
+      <input class="pininput" type="password" name="pin" inputmode="numeric"
+             autocomplete="new-password" autofocus placeholder="Choose a PIN (4+ characters)">
+      <input class="pininput" type="password" name="pin2" inputmode="numeric"
+             autocomplete="new-password" placeholder="Repeat the PIN" style="margin-top:10px">
+      <button class="btn primary big" style="width:100%;margin-top:14px">Set PIN &amp; enter</button>
+    </form>
+  </div>
+</div>
+</body>
+</html>
