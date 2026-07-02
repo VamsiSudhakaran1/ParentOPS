@@ -129,6 +129,27 @@ scopes → repeat for the second child → tap **⟳ Sync**.
 
 ---
 
+## Android app
+
+A native Android shell (in `android/`) wraps the app with persistent login,
+pull-to-refresh and back navigation. GitHub Actions builds the APK on every
+push that touches `android/`:
+
+1. GitHub → **Actions** → latest **Build Android APK** run → download the
+   **parentops-apk** artifact (unzip it to get `app-debug.apk`).
+2. Copy it to the phone and open it (allow "install from unknown sources").
+3. First launch asks for your server address — the `http://YOUR-PC-IP:8000`
+   shown when `run.bat` starts (phone must be on the same Wi-Fi), or your
+   deployed https:// URL.
+4. Enter your household PIN once; it stays signed in.
+
+Note: **linking a child's Google account opens in the phone's browser** —
+Google blocks OAuth inside embedded WebViews. Easiest is to do the one-time
+linking from your computer; day-to-day use is all in the app.
+
+An iOS shell (WKWebView, same pattern) is planned — it needs a Mac with
+Xcode to build, unlike the Android CI build.
+
 ## Configuration
 
 | Env var | Default | Purpose |
