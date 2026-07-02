@@ -35,9 +35,56 @@
     {% if oauth_ready %}
       <a class="btn primary big" href="/link">+ Link a child's Classroom account</a>
     {% else %}
-      <div class="notice">⚠️ <b>client_secret.json not found.</b> Follow step 1 of the README
-        (create a Google Cloud OAuth client) and place the file next to the app, then restart.</div>
+      <div class="notice">⚠️ Add your Google credentials below first — then you can link accounts.</div>
     {% endif %}
+  </div>
+</section>
+
+<section>
+  <div class="sec-title">Google API credentials</div>
+  <div class="card stack">
+    {% if client_hint %}
+      <p>✅ Configured — client <code>{{ client_hint }}</code>. Paste new values below to replace.</p>
+    {% else %}
+      <p style="font-size:13.5px;line-height:1.5">One-time step: in
+        <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a>,
+        enable the <b>Classroom API</b>, set the OAuth consent screen to <b>Testing</b>
+        (add your kids' emails as test users), create an <b>OAuth Client ID → Web application</b>
+        with redirect URI <code>http://localhost:8000/oauth/callback</code>, then paste the
+        Client ID and Secret here. Full walkthrough in the README.</p>
+    {% endif %}
+    <form method="post" action="/settings/google" class="stack">
+      <input name="client_id" placeholder="Client ID (…apps.googleusercontent.com)" required>
+      <input name="client_secret" placeholder="Client secret" required>
+      <button class="btn primary">Save credentials</button>
+    </form>
+    <p class="muted small">Stored encrypted on this machine only.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-title">Sync</div>
+  <div class="card stack">
+    <p>🔄 Auto-sync: every {{ autosync_min }} min while the app is running</p>
+    <p>🕐 Last sync: {{ last_sync or 'never' }}
+      {% if last_sync_error %}<span class="tag verify">⚠ {{ last_sync_error }}</span>{% endif %}</p>
+    <form method="post" action="/sync"><button class="btn">Sync now</button></form>
+  </div>
+</section>
+
+<section>
+  <div class="sec-title">Security</div>
+  <div class="card stack">
+    <form method="post" action="/settings/pin" class="stack">
+      <input type="password" name="current" placeholder="Current PIN" required>
+      <input type="password" name="pin" placeholder="New PIN (4+ characters)" required>
+      <input type="password" name="pin2" placeholder="Repeat new PIN" required>
+      <button class="btn">Change PIN</button>
+    </form>
+    <form method="post" action="/logout"><button class="btn quiet">Log out of this device</button></form>
+    <p class="muted small">Google tokens and credentials are encrypted at rest.
+      Classroom access is read-only and revocable at
+      <a href="https://myaccount.google.com/permissions" target="_blank">myaccount.google.com/permissions</a>.</p>
   </div>
 </section>
 
@@ -47,9 +94,7 @@
     <p>🧠 AI extraction: {% if has_api_key %}<b>Claude API active</b>{% else %}
       <b>heuristic fallback</b> — set <code>ANTHROPIC_API_KEY</code> for full extraction{% endif %}</p>
     <p>🧪 Demo data: {{ 'loaded' if demo else 'off' }}</p>
-    <p class="muted small">All data stays in a local SQLite file on this machine.
-      Google access is read-only and revocable at
-      <a href="https://myaccount.google.com/permissions" target="_blank">myaccount.google.com/permissions</a>.</p>
+    <p class="muted small">All data stays in a local SQLite file on this machine.</p>
   </div>
 </section>
 
