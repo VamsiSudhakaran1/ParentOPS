@@ -14,6 +14,7 @@ object SyncManager {
             var newPosts = 0
             val errors = mutableListOf<String>()
             for (child in data.children) {
+                if (!child.email.contains("@")) continue  // manual child, no account
                 try {
                     val token = GoogleAuthHelper.tokenOrApproval(ctx, child.email)
                     val fetched = ClassroomApi.fetchAll(token, child.email)

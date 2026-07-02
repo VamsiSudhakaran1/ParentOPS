@@ -58,13 +58,47 @@ private fun dow(iso: String?): String =
 fun App(
     data: AppData,
     syncing: Boolean,
+    pendingShare: String?,
     onMutate: ((AppData) -> Unit) -> Unit,
     onAddChild: () -> Unit,
     onSync: () -> Unit,
+    onIngestShare: (String?) -> Unit,
+    onDismissShare: () -> Unit,
     onOpenLink: (String?) -> Unit,
 ) {
     var tab by remember { mutableStateOf(0) }
     var selChild by remember { mutableStateOf<String?>(null) }
+
+    if (pendingShare != null) {
+        AlertDialog(
+            onDismissRequest = onDismissShare,
+            title = { Text("Add to ParentOps") },
+            text = {
+                Column {
+                    if (data.children.size > 1) {
+                        Text("Whose is this?", fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp))
+                        data.children.forEach { ch ->
+                            OutlinedButton(onClick = { onIngestShare(ch.email) },
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                Text(ch.name)
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    Text(pendingShare.take(400), fontSize = 12.sp,
+                        color = Color(0xFF6B7280))
+                }
+            },
+            confirmButton = {
+                if (data.children.size <= 1) {
+                    TextButton(onClick = { onIngestShare(null) }) { Text("Add") }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissShare) { Text("Cancel") }
+            })
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -243,6 +277,11 @@ private fun TodayScreen(
                             fontSize = 13.sp, color = Color(0xFF6B7280),
                             modifier = Modifier.padding(vertical = 8.dp))
                         Button(onClick = onAddChild) { Text("Sign in with Google") }
+                        Text("School blocks sign-in? No problem — share any screenshot " +
+                             "or WhatsApp message to ParentOps and it becomes an action " +
+                             "item. Add children in Settings.",
+                            fontSize = 12.sp, color = Color(0xFF6B7280),
+                            modifier = Modifier.padding(top = 10.dp))
                     }
                 }
             }
@@ -497,6 +536,7 @@ private fun SettingsScreen(
     onAddChild: () -> Unit, onSync: () -> Unit,
 ) {
     var editChild by remember { mutableStateOf<Child?>(null) }
+    var addManual by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize()) {
         item { SectionTitle("Children") }
         data.children.forEach { ch ->
@@ -521,8 +561,18 @@ private fun SettingsScreen(
             }
         }
         item {
-            Button(onClick = onAddChild, modifier = Modifier.padding(16.dp, 8.dp)) {
-                Text("+ Sign in with Google (add a child)")
+            Column(Modifier.padding(16.dp, 8.dp)) {
+                Button(onClick = onAddChild) {
+                    Text("+ Sign in with Google (add a child)")
+                }
+                OutlinedButton(onClick = { addManual = true },
+                    modifier = Modifier.padding(top = 4.dp)) {
+                    Text("+ Add a child without Google")
+                }
+                Text("No Google needed: share screenshots or WhatsApp texts to " +
+                     "ParentOps from any app and they become action items here.",
+                    fontSize = 11.sp, color = Color(0xFF6B7280),
+                    modifier = Modifier.padding(top = 6.dp))
             }
         }
         item { SectionTitle("Sync") }
@@ -547,6 +597,41 @@ private fun SettingsScreen(
                 modifier = Modifier.padding(16.dp, 4.dp))
         }
         item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    if (addManual) {
+        var name by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { addManual = false },
+            title = { Text("Add a child (no Google account)") },
+            text = {
+                Column {
+                    OutlinedTextField(value = name, onValueChange = { name = it },
+                        label = { Text("Child's name") })
+                    Text("You'll feed their items by sharing screenshots or texts " +
+                         "to ParentOps — no sign-in involved.",
+                        fontSize = 11.sp, color = Color(0xFF6B7280),
+                        modifier = Modifier.padding(top = 6.dp))
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (name.isNotBlank()) {
+                        onMutate { d ->
+                            d.children.add(Child(
+                                email = "manual-" + name.trim().lowercase()
+                                    .replace(Regex("[^a-z0-9]+"), "-") +
+                                    "-" + System.currentTimeMillis() % 10000,
+                                name = name.trim(),
+                                color = CHILD_COLORS[d.children.size % CHILD_COLORS.size]))
+                        }
+                    }
+                    addManual = false
+                }) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { addManual = false }) { Text("Cancel") }
+            })
     }
 
     editChild?.let { ch ->
