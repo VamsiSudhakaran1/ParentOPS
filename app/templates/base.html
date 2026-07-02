@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4653e8">
+<link rel="manifest" href="/static/manifest.json">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ParentOps</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brandrow">
+      <div class="brand">Parent<span>Ops</span></div>
+      <form method="post" action="/sync"><button class="syncbtn" title="Sync now">⟳ Sync</button></form>
+    </div>
+    {% if request.query_params.get('msg') %}
+      <div class="flash">{{ request.query_params.get('msg') }}</div>
+    {% endif %}
+    {% block header %}{% endblock %}
+  </header>
+
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <nav class="nav">
+    <a href="/" class="{{ 'active' if active=='today' }}"><span class="ico">🏠</span>Today</a>
+    <a href="/digest?mode=morning" class="{{ 'active' if active=='digest' }}"><span class="ico">☀️</span>Digest</a>
+    <a href="/library" class="{{ 'active' if active=='library' }}"><span class="ico">📚</span>Library</a>
+    <a href="/settings" class="{{ 'active' if active=='settings' }}"><span class="ico">⚙️</span>Settings</a>
+  </nav>
+</div>
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');
+</script>
+</body>
+</html>
