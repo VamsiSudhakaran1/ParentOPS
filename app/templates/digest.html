@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_item.html" as ic %}
 
 {% block header %}
 <div class="kids">
@@ -9,19 +10,29 @@
 
 {% block content %}
 
+{% if holidays %}
+<div class="holiday">
+  <span class="holiday-emoji">🎉</span>
+  <div>
+    <b>Holiday today — no school</b>
+    {% for title in holidays | map(attribute='title') | unique %}<p>{{ title }}</p>{% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {% if mode == 'morning' %}
 
   {% if overdue %}
   <section>
     <div class="sec-title urgent">Carried over — still not done</div>
-    <div class="card">{% for it in overdue %}{% include "_item.html" %}{% endfor %}</div>
+    <div class="card">{% for it in overdue %}{{ ic.card(it, today) }}{% endfor %}</div>
   </section>
   {% endif %}
 
   {% if due_today %}
   <section>
     <div class="sec-title">Due today</div>
-    <div class="card">{% for it in due_today %}{% include "_item.html" %}{% endfor %}</div>
+    <div class="card">{% for it in due_today %}{{ ic.card(it, today) }}{% endfor %}</div>
   </section>
   {% endif %}
 
@@ -38,7 +49,7 @@
   </section>
   {% endif %}
 
-  {% if not (overdue or due_today) %}
+  {% if not (overdue or due_today or holidays) %}
   <div class="card empty"><h3>Clean slate ☀️</h3><p>Nothing carried over, nothing due today.</p></div>
   {% endif %}
 
@@ -49,27 +60,21 @@
     <div class="card">
       {% for it in done_today %}<div class="doneline">✓ {{ it.title }}</div>
       {% else %}<p class="muted">Nothing ticked off yet today.</p>{% endfor %}
+      {% if done_today %}<a class="donelink" href="/finished">See all finished tasks →</a>{% endif %}
     </div>
   </section>
 
   {% if overdue or due_today %}
   <section>
     <div class="sec-title urgent">Still pending tonight</div>
-    <div class="card">{% for it in overdue + due_today %}{% include "_item.html" %}{% endfor %}</div>
+    <div class="card">{% for it in overdue + due_today %}{{ ic.card(it, today) }}{% endfor %}</div>
   </section>
   {% endif %}
 
   {% if due_tomorrow %}
   <section>
     <div class="sec-title">Tomorrow — prepare tonight</div>
-    <div class="card">{% for it in due_tomorrow %}{% include "_item.html" %}{% endfor %}</div>
-  </section>
-  {% endif %}
-
-  {% if confirm %}
-  <section>
-    <div class="sec-title warn">Arrived today — needs a decision</div>
-    <div class="card">{% for it in confirm %}{% include "_item.html" %}{% endfor %}</div>
+    <div class="card">{% for it in due_tomorrow %}{{ ic.card(it, today) }}{% endfor %}</div>
   </section>
   {% endif %}
 

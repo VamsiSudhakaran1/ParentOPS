@@ -75,6 +75,19 @@ section{display:flex;flex-direction:column}
 .struck{color:var(--muted);text-decoration:line-through}
 .doneline{display:flex;align-items:center;justify-content:space-between;font-size:13.5px;color:var(--ok);padding:4px 0;font-weight:600}
 
+/* holiday banner */
+.holiday{display:flex;gap:12px;align-items:flex-start;background:linear-gradient(135deg,#f59e0b,#ef6820);color:#fff;border-radius:16px;padding:16px}
+.holiday b{font-size:15px}
+.holiday p{font-size:13px;opacity:.95;margin-top:3px;line-height:1.4}
+.holiday-emoji{font-size:26px;line-height:1}
+.tag.onlight{background:rgba(255,255,255,.25);color:#fff}
+
+/* per-kid grouping in All-kids view */
+.kidhead{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:800;margin:2px 0 6px}
+.kidhead + .card{margin-bottom:10px}
+
+.donelink{display:block;font-size:13px;font-weight:700;padding:6px 2px}
+
 /* timetable */
 .ttrow{display:flex;gap:8px;align-items:center;margin-bottom:6px}
 .tt{display:flex;gap:6px;overflow-x:auto;padding:2px 0}

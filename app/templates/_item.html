@@ -1,8 +1,9 @@
-{# One action-item card. Expects `it` in context. #}
+{# Action-item card macro: import with {% import "_item.html" as ic %} #}
+{% macro card(it, today) %}
 <div class="item">
-  <div class="due {{ 'red' if it.due_date and it.due_date < today else ('amber' if it.needs_confirm else 'blue') }}">
+  <div class="due {{ 'red' if it.due_date and it.due_date < today else 'blue' }}">
     {% if it.due_date %}
-      <b>{{ it.due_date | dow }}{{ '?' if it.needs_confirm }}</b>
+      <b>{{ it.due_date | dow }}</b>
       <small>{{ it.due_date[8:] }}/{{ it.due_date[5:7] }}</small>
     {% else %}<b>—</b><small>date</small>{% endif %}
   </div>
@@ -23,19 +24,13 @@
       <span class="tag" style="background:{{ it.child_color }}22;color:{{ it.child_color }}">{{ it.child_name }}</span>
       {% if it.course_name %}<span class="tag src">{{ it.course_name }}</span>{% endif %}
       {% if it.amount %}<span class="tag amt">{{ it.amount }}</span>{% endif %}
-      {% if it.needs_confirm %}<span class="tag verify">⚠ Confirm date</span>{% endif %}
+      {% if it.category and it.category not in ('task', None) %}<span class="tag kind">{{ it.category }}</span>{% endif %}
     </div>
     <div class="btnrow">
-      {% if it.needs_confirm %}
-        <form method="post" action="/items/{{ it.id }}/confirm" class="inlineform">
-          <input type="date" name="due_date" value="{{ it.due_date or '' }}">
-          <button class="btn primary">Confirm</button>
-        </form>
-      {% else %}
-        <form method="post" action="/items/{{ it.id }}/done"><button class="btn primary">Done ✓</button></form>
-      {% endif %}
+      <form method="post" action="/items/{{ it.id }}/done"><button class="btn primary">Done ✓</button></form>
       {% if it.post_link %}<a class="btn" href="{{ it.post_link }}" target="_blank">Original ↗</a>{% endif %}
       <form method="post" action="/items/{{ it.id }}/dismiss"><button class="btn quiet">Dismiss</button></form>
     </div>
   </div>
 </div>
+{% endmacro %}

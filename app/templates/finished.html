@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block header %}
+<div class="kids">
+  <a href="/finished" class="kid {{ 'active' if not sel_child }}">
+    <span class="avatar" style="background:#334">∗</span>
+    <span>All kids</span>
+  </a>
+  {% for ch in children %}
+  <a href="/finished?child={{ ch.id }}" class="kid {{ 'active' if sel_child == ch.id }}">
+    <span class="avatar" style="background:{{ ch.color }}">{{ ch.name[0] | upper }}</span>
+    <span>{{ ch.name.split(' ')[0] }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+{% for day, group in done | groupby('done_day') | reverse %}
+<section>
+  <div class="sec-title ok">{{ 'Today' if day == today else (day | nicedate) }}</div>
+  <div class="card">
+    {% for it in group %}
+      <div class="doneline">
+        <div>
+          ✓ {{ it.title }}
+          <div class="tags">
+            <span class="tag" style="background:{{ it.child_color }}22;color:{{ it.child_color }}">{{ it.child_name.split(' ')[0] }}</span>
+            {% if it.course_name %}<span class="tag src">{{ it.course_name }}</span>{% endif %}
+            {% if it.due_date %}<span class="tag kind">was due {{ it.due_date | nicedate }}</span>{% endif %}
+          </div>
+        </div>
+        <form method="post" action="/items/{{ it.id }}/reopen"><button class="btn quiet">Undo</button></form>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<div class="card empty">
+  <h3>No finished tasks yet</h3>
+  <p>When you mark a to-do as <b>Done ✓</b> it lands here, grouped by the day you completed it — so nothing you did gets lost.</p>
+</div>
+{% endfor %}
+
+{% endblock %}

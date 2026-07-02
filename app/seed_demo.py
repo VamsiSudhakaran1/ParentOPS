@@ -58,10 +58,11 @@ def run():
         link=None, attachments=[],
         posted_at=(today.isoformat() + "T08:00:00Z"),
         updated_at=(today.isoformat() + "T08:00:00Z"))
+    tomorrow = today + timedelta(days=1)
     db.add_item(kid, "Class Test — Tamil: அறிவு நிலா", post_id=p2,
-                detail=("Teacher wrote \"tomorrow\" — read as "
-                        f"{(today + timedelta(days=1)).strftime('%a %d %b')} from the post time. Confirm."),
-                due_date=(today + timedelta(days=1)).isoformat(), needs_confirm=1)
+                detail=(f"Teacher wrote \"tomorrow\" — {tomorrow.strftime('%a %d %b')} "
+                        "based on the post time."),
+                due_date=tomorrow.isoformat(), category="test")
 
     p3, _ = db.upsert_post(
         kid, "demo-assembly", "announcement",
@@ -96,10 +97,46 @@ def run():
         link=None, attachments=[{"type": "file", "title": "5D.jpg", "link": "#"}],
         posted_at="2026-06-20T10:00:00Z", updated_at="2026-06-20T10:00:00Z")
 
+    # Second child, to demonstrate the per-kid grouping in the All-kids view.
+    kid2 = db.add_child("Diya (demo)")
+    db.update_child(kid2, timetable_json=json.dumps({
+        "mon": ["Eng", "Math", "EVS", "Tamil", "Games"],
+        "tue": ["Math", "Eng", "Art", "EVS", "Music"],
+        "wed": ["EVS", "Math", "Eng", "Games", "Tamil"],
+        "thu": ["Eng", "Story", "Math", "EVS", "Dance"],
+        "fri": ["Math", "Eng", "Tamil", "Art", "Games"],
+    }))
+    p4, _ = db.upsert_post(
+        kid2, "demo-fee", "announcement",
+        course_name="Grade 2A",
+        title="Term 1 activity fee — ₹1,250",
+        body=("Dear Parents,\nKindly pay the Term 1 activity fee of ₹1,250 via the "
+              "school portal on or before 08.07.2026, 5 PM. Keep the receipt as proof."),
+        link=None, attachments=[],
+        posted_at="2026-07-01T11:00:00Z", updated_at="2026-07-01T11:00:00Z")
+    db.add_item(kid2, "Pay Term 1 activity fee — ₹1,250", post_id=p4,
+                detail="Via the school portal, before 5 PM.", due_date="2026-07-08",
+                amount="₹1,250", category="fee",
+                checklist=[{"text": "Pay on the school portal", "done": False},
+                           {"text": "Save the receipt as proof", "done": False}])
+
+    # A holiday dated today, to demonstrate the holiday banner.
+    p5, _ = db.upsert_post(
+        kid2, "demo-holiday", "announcement",
+        course_name="Grade 2A",
+        title="Holiday tomorrow — Staff Development Day",
+        body=("Dear Parents,\nKindly note the school will remain closed "
+              f"on {today.strftime('%d.%m.%Y')} on account of Staff Development Day."),
+        link=None, attachments=[],
+        posted_at=((today - timedelta(days=1)).isoformat() + "T14:00:00Z"),
+        updated_at=((today - timedelta(days=1)).isoformat() + "T14:00:00Z"))
+    db.add_item(kid2, "Staff Development Day (demo)", post_id=p5,
+                due_date=today.isoformat(), category="holiday")
+
     # Mark all demo posts extracted so heuristics don't double-create items.
     for post in db.unextracted_posts():
         db.mark_extracted(post["id"])
-    print("Demo data seeded: 1 child, 6 posts, 3 action items.")
+    print("Demo data seeded: 2 children, 8 posts, 5 action items.")
 
 
 if __name__ == "__main__":
