@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block header %}
+<div class="kids">
+  <a href="/digest?mode=morning" class="kid {{ 'active' if mode=='morning' }}"><span>☀️ Morning brief</span></a>
+  <a href="/digest?mode=evening" class="kid {{ 'active' if mode=='evening' }}"><span>🌙 Evening review</span></a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+{% if mode == 'morning' %}
+
+  {% if overdue %}
+  <section>
+    <div class="sec-title urgent">Carried over — still not done</div>
+    <div class="card">{% for it in overdue %}{% include "_item.html" %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if due_today %}
+  <section>
+    <div class="sec-title">Due today</div>
+    <div class="card">{% for it in due_today %}{% include "_item.html" %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if timetables %}
+  <section>
+    <div class="sec-title">Today's timetable</div>
+    {% for t in timetables %}
+      <div class="ttrow">
+        <span class="tag" style="background:{{ t.child.color }}22;color:{{ t.child.color }}">{{ t.child.name.split(' ')[0] }}</span>
+        <div class="tt">{% for p in t.periods %}<div class="period"><b>{{ p }}</b></div>{% endfor %}</div>
+      </div>
+      {% if t.note %}<div class="ttnote">{{ t.note }}</div>{% endif %}
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if not (overdue or due_today) %}
+  <div class="card empty"><h3>Clean slate ☀️</h3><p>Nothing carried over, nothing due today.</p></div>
+  {% endif %}
+
+{% else %}
+
+  <section>
+    <div class="sec-title ok">Done today — {{ done_today | length }}</div>
+    <div class="card">
+      {% for it in done_today %}<div class="doneline">✓ {{ it.title }}</div>
+      {% else %}<p class="muted">Nothing ticked off yet today.</p>{% endfor %}
+    </div>
+  </section>
+
+  {% if overdue or due_today %}
+  <section>
+    <div class="sec-title urgent">Still pending tonight</div>
+    <div class="card">{% for it in overdue + due_today %}{% include "_item.html" %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if due_tomorrow %}
+  <section>
+    <div class="sec-title">Tomorrow — prepare tonight</div>
+    <div class="card">{% for it in due_tomorrow %}{% include "_item.html" %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if confirm %}
+  <section>
+    <div class="sec-title warn">Arrived today — needs a decision</div>
+    <div class="card">{% for it in confirm %}{% include "_item.html" %}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+{% endif %}
+
+{% endblock %}

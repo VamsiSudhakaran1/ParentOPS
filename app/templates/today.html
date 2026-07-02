@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block header %}
+<div class="kids">
+  <a href="/" class="kid {{ 'active' if not sel_child }}">
+    <span class="avatar" style="background:#334">∗</span>
+    <span>All kids</span>
+  </a>
+  {% for ch in children %}
+  <a href="/?child={{ ch.id }}" class="kid {{ 'active' if sel_child == ch.id }}">
+    <span class="avatar" style="background:{{ ch.color }}">{{ ch.name[0] | upper }}</span>
+    <span>{{ ch.name.split(' ')[0] }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block content %}
+
+{% if not children %}
+<div class="card empty">
+  <h3>Welcome to ParentOps 👋</h3>
+  <p>Link your first child's Google Classroom account to get started.</p>
+  {% if oauth_ready %}
+    <a class="btn primary big" href="/link">Link a child's Classroom account</a>
+  {% else %}
+    <p class="muted">First add your <code>client_secret.json</code> — see step 1 in the README, then restart.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if timetables %}
+<section>
+  <div class="sec-title">Today's timetable</div>
+  {% for t in timetables %}
+    <div class="ttrow">
+      <span class="tag" style="background:{{ t.child.color }}22;color:{{ t.child.color }}">{{ t.child.name.split(' ')[0] }}</span>
+      <div class="tt">
+        {% for p in t.periods %}<div class="period"><b>{{ p }}</b></div>{% endfor %}
+      </div>
+    </div>
+    {% if t.note %}<div class="ttnote">{{ t.note }}</div>{% endif %}
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if confirm %}
+<section>
+  <div class="sec-title warn">Needs your confirmation</div>
+  <div class="card">{% for it in confirm %}{% include "_item.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+
+{% if overdue %}
+<section>
+  <div class="sec-title urgent">Overdue</div>
+  <div class="card">{% for it in overdue %}{% include "_item.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+
+{% if soon %}
+<section>
+  <div class="sec-title">Next 7 days</div>
+  <div class="card">{% for it in soon %}{% include "_item.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+
+{% if undated or later %}
+<section>
+  <div class="sec-title">Later / no date</div>
+  <div class="card">{% for it in undated + later %}{% include "_item.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+
+{% if done_today %}
+<section>
+  <div class="sec-title ok">Done today — {{ done_today | length }} 🎉</div>
+  <div class="card">
+    {% for it in done_today %}
+      <div class="doneline">✓ {{ it.title }}
+        <form method="post" action="/items/{{ it.id }}/reopen" class="inlineform"><button class="btn quiet">Undo</button></form>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if children and not (confirm or overdue or soon or undated or later) %}
+<div class="card empty"><h3>All clear ✨</h3><p>Nothing needs action. Tap ⟳ Sync to check for new posts.</p></div>
+{% endif %}
+
+{% endblock %}

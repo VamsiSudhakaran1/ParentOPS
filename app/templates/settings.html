@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section>
+  <div class="sec-title">Linked children</div>
+  <div class="card stack">
+    {% for ch in children %}
+      <div class="childrow">
+        <span class="avatar big" style="background:{{ ch.color }}">{{ ch.name[0] | upper }}</span>
+        <div style="flex:1">
+          <form method="post" action="/children/{{ ch.id }}/rename" class="inlineform">
+            <input name="name" value="{{ ch.name }}">
+            <button class="btn">Rename</button>
+          </form>
+          <p class="muted small">{{ ch.email or 'no account linked' }}
+            {% if ch.token_json %}· ✅ Classroom linked{% else %}· ⚠️ demo only{% endif %}</p>
+          <details>
+            <summary class="muted small">Timetable (JSON: {"mon": ["Math", …], "mon_note": "…"})</summary>
+            <form method="post" action="/children/{{ ch.id }}/timetable">
+              <textarea name="timetable" rows="8">{{ ch.timetable_pretty }}</textarea>
+              <button class="btn">Save timetable</button>
+            </form>
+          </details>
+        </div>
+        <form method="post" action="/children/{{ ch.id }}/unlink"
+              onsubmit="return confirm('Remove {{ ch.name }} and all their data?')">
+          <button class="btn quiet">Remove</button>
+        </form>
+      </div>
+    {% else %}
+      <p class="muted">No children linked yet.</p>
+    {% endfor %}
+
+    {% if oauth_ready %}
+      <a class="btn primary big" href="/link">+ Link a child's Classroom account</a>
+    {% else %}
+      <div class="notice">⚠️ <b>client_secret.json not found.</b> Follow step 1 of the README
+        (create a Google Cloud OAuth client) and place the file next to the app, then restart.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section>
+  <div class="sec-title">Status</div>
+  <div class="card stack">
+    <p>🧠 AI extraction: {% if has_api_key %}<b>Claude API active</b>{% else %}
+      <b>heuristic fallback</b> — set <code>ANTHROPIC_API_KEY</code> for full extraction{% endif %}</p>
+    <p>🧪 Demo data: {{ 'loaded' if demo else 'off' }}</p>
+    <p class="muted small">All data stays in a local SQLite file on this machine.
+      Google access is read-only and revocable at
+      <a href="https://myaccount.google.com/permissions" target="_blank">myaccount.google.com/permissions</a>.</p>
+  </div>
+</section>
+
+{% endblock %}

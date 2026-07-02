@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block header %}
+<form method="get" action="/library" class="searchform">
+  <input class="search" type="search" name="q" value="{{ q }}" placeholder="Search circulars, homework, syllabus…">
+  {% if sel_child %}<input type="hidden" name="child" value="{{ sel_child }}">{% endif %}
+</form>
+{% endblock %}
+
+{% block content %}
+
+{% if not q and not sel_course %}
+<section>
+  <div class="sec-title">Subjects</div>
+  <div class="card stack">
+    {% for c in courses %}
+      <a class="courseline" href="/library?course={{ c.course_name | urlencode }}&child={{ c.child_id }}">
+        <span class="tag" style="background:{{ c.child_color }}22;color:{{ c.child_color }}">{{ c.child_name.split(' ')[0] }}</span>
+        <b>{{ c.course_name }}</b>
+        <span class="muted">{{ c.n }} posts</span>
+      </a>
+    {% else %}
+      <p class="muted">Nothing synced yet — link an account in Settings, then tap ⟳ Sync.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <div class="sec-title">
+    {% if sel_course %}{{ sel_course }}{% elif q %}Results for “{{ q }}”{% else %}Recent posts{% endif %}
+    {% if sel_course or q %}<a href="/library">clear ✕</a>{% endif %}
+  </div>
+  <div class="card stack">
+    {% for p in posts %}
+      <div class="post">
+        <div class="postmeta">
+          <span class="tag" style="background:{{ p.child_color }}22;color:{{ p.child_color }}">{{ p.child_name.split(' ')[0] }}</span>
+          <span class="tag src">{{ p.course_name }}</span>
+          <span class="tag kind">{{ {'announcement':'📣','courseWork':'📝','material':'📘'}[p.kind] }} {{ p.kind }}</span>
+          <span class="muted small">{{ (p.posted_at or '')[:10] }}</span>
+        </div>
+        <h4>{{ p.title }}</h4>
+        {% if p.body and p.body != p.title %}<p class="postbody">{{ p.body | truncate(400) }}</p>{% endif %}
+        {% set atts = p.attachments_json and (p.attachments_json | fromjson) or [] %}
+        {% if atts %}
+          <div class="tags">
+            {% for a in atts %}<a class="tag att" href="{{ a.link }}" target="_blank">📎 {{ a.title | truncate(40) }}</a>{% endfor %}
+          </div>
+        {% endif %}
+        {% if p.link %}<a class="muted small" href="{{ p.link }}" target="_blank">Open in Classroom ↗</a>{% endif %}
+      </div>
+    {% else %}
+      <p class="muted">No posts{% if q %} matching “{{ q }}”{% endif %}.</p>
+    {% endfor %}
+  </div>
+</section>
+
+{% endblock %}
