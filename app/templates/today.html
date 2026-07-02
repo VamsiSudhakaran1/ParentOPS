@@ -1,4 +1,25 @@
 {% extends "base.html" %}
+{% import "_item.html" as ic %}
+
+{# Renders a section; in All-kids view items are grouped per child. #}
+{% macro grouped_section(title, cls, lst, grouped, today) %}
+{% if lst %}
+<section>
+  <div class="sec-title {{ cls }}">{{ title }}</div>
+  {% if grouped %}
+    {% for cname, group in lst | groupby('child_name') %}
+      <div class="kidhead">
+        <span class="avatar" style="background:{{ group[0].child_color }}">{{ cname[0] | upper }}</span>
+        {{ cname }}
+      </div>
+      <div class="card">{% for it in group %}{{ ic.card(it, today) }}{% endfor %}</div>
+    {% endfor %}
+  {% else %}
+    <div class="card">{% for it in lst %}{{ ic.card(it, today) }}{% endfor %}</div>
+  {% endif %}
+</section>
+{% endif %}
+{% endmacro %}
 
 {% block header %}
 <div class="kids">
@@ -16,6 +37,7 @@
 {% endblock %}
 
 {% block content %}
+{% set grouped = (not sel_child) and children | length > 1 %}
 
 {% if not children %}
 <div class="card empty">
@@ -29,10 +51,30 @@
 </div>
 {% endif %}
 
+{% if holidays %}
+<div class="holiday">
+  <span class="holiday-emoji">🎉</span>
+  <div>
+    <b>Holiday today — no school</b>
+    {% for title in holidays | map(attribute='title') | unique %}
+      <p>{{ title }}</p>
+    {% endfor %}
+    {% if grouped %}
+      <div class="tags">
+        {% for h in holidays %}
+          <span class="tag onlight">{{ h.child_name.split(' ')[0] }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 {% if timetables %}
 <section>
   <div class="sec-title">Today's timetable</div>
   {% for t in timetables %}
+    {% if not sel_child or t.child.id == sel_child %}
     <div class="ttrow">
       <span class="tag" style="background:{{ t.child.color }}22;color:{{ t.child.color }}">{{ t.child.name.split(' ')[0] }}</span>
       <div class="tt">
@@ -40,52 +82,20 @@
       </div>
     </div>
     {% if t.note %}<div class="ttnote">{{ t.note }}</div>{% endif %}
+    {% endif %}
   {% endfor %}
 </section>
 {% endif %}
 
-{% if confirm %}
-<section>
-  <div class="sec-title warn">Needs your confirmation</div>
-  <div class="card">{% for it in confirm %}{% include "_item.html" %}{% endfor %}</div>
-</section>
+{{ grouped_section('Overdue', 'urgent', overdue, grouped, today) }}
+{{ grouped_section('Next 7 days', '', soon, grouped, today) }}
+{{ grouped_section('Later / no date', '', undated + later, grouped, today) }}
+
+{% if done_today_count %}
+<a class="donelink" href="/finished">✅ {{ done_today_count }} finished today — see all finished tasks →</a>
 {% endif %}
 
-{% if overdue %}
-<section>
-  <div class="sec-title urgent">Overdue</div>
-  <div class="card">{% for it in overdue %}{% include "_item.html" %}{% endfor %}</div>
-</section>
-{% endif %}
-
-{% if soon %}
-<section>
-  <div class="sec-title">Next 7 days</div>
-  <div class="card">{% for it in soon %}{% include "_item.html" %}{% endfor %}</div>
-</section>
-{% endif %}
-
-{% if undated or later %}
-<section>
-  <div class="sec-title">Later / no date</div>
-  <div class="card">{% for it in undated + later %}{% include "_item.html" %}{% endfor %}</div>
-</section>
-{% endif %}
-
-{% if done_today %}
-<section>
-  <div class="sec-title ok">Done today — {{ done_today | length }} 🎉</div>
-  <div class="card">
-    {% for it in done_today %}
-      <div class="doneline">✓ {{ it.title }}
-        <form method="post" action="/items/{{ it.id }}/reopen" class="inlineform"><button class="btn quiet">Undo</button></form>
-      </div>
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
-
-{% if children and not (confirm or overdue or soon or undated or later) %}
+{% if children and not (overdue or soon or undated or later or holidays) %}
 <div class="card empty"><h3>All clear ✨</h3><p>Nothing needs action. Tap ⟳ Sync to check for new posts.</p></div>
 {% endif %}
 

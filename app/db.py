@@ -63,6 +63,10 @@ def conn():
 def init_db():
     with conn() as c:
         c.executescript(SCHEMA)
+        try:  # migration for DBs created before item categories existed
+            c.execute("ALTER TABLE items ADD COLUMN category TEXT")
+        except sqlite3.OperationalError:
+            pass
 
 
 # ---------- children ----------
@@ -180,13 +184,13 @@ def courses_summary():
 # ---------- items ----------
 
 def add_item(child_id, title, post_id=None, detail=None, due_date=None, amount=None,
-             checklist=None, needs_confirm=0):
+             checklist=None, category=None):
     with conn() as c:
         cur = c.execute(
             "INSERT INTO items (post_id, child_id, title, detail, due_date, amount,"
-            " checklist_json, needs_confirm) VALUES (?,?,?,?,?,?,?,?)",
+            " checklist_json, category) VALUES (?,?,?,?,?,?,?,?)",
             (post_id, child_id, title, detail, due_date, amount,
-             json.dumps(checklist or []), needs_confirm),
+             json.dumps(checklist or []), category),
         )
         return cur.lastrowid
 
@@ -224,6 +228,25 @@ def update_item(item_id, **fields):
     sets = ", ".join(f"{k}=?" for k in fields)
     with conn() as c:
         c.execute(f"UPDATE items SET {sets} WHERE id=?", (*fields.values(), item_id))
+
+
+def items_done(child_id=None, limit=300):
+    """All finished tasks, newest first, with the day they were completed."""
+    sql = ("SELECT i.*, ch.name AS child_name, ch.color AS child_color,"
+           " p.course_name, p.link AS post_link, date(i.done_at) AS done_day"
+           " FROM items i JOIN children ch ON ch.id=i.child_id"
+           " LEFT JOIN posts p ON p.id=i.post_id WHERE i.status='done'")
+    args = []
+    if child_id:
+        sql += " AND i.child_id=?"
+        args.append(child_id)
+    sql += " ORDER BY i.done_at DESC LIMIT ?"
+    args.append(limit)
+    with conn() as c:
+        rows = [dict(r) for r in c.execute(sql, args)]
+    for r in rows:
+        r["checklist"] = json.loads(r.get("checklist_json") or "[]")
+    return rows
 
 
 def items_done_on(date_iso, child_id=None):

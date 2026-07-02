@@ -33,10 +33,10 @@ def _sections(child_id=None):
     """Group open items for the Today screen."""
     today = date.today().isoformat()
     week = (date.today() + timedelta(days=7)).isoformat()
-    confirm, overdue, soon, later, undated = [], [], [], [], []
+    overdue, soon, later, undated, holidays = [], [], [], [], []
     for it in db.items("open", child_id):
-        if it["needs_confirm"]:
-            confirm.append(it)
+        if it.get("category") == "holiday" and it["due_date"] == today:
+            holidays.append(it)
         elif not it["due_date"]:
             undated.append(it)
         elif it["due_date"] < today:
@@ -45,8 +45,8 @@ def _sections(child_id=None):
             soon.append(it)
         else:
             later.append(it)
-    return dict(confirm=confirm, overdue=overdue, soon=soon, later=later,
-                undated=undated, today=today)
+    return dict(overdue=overdue, soon=soon, later=later, undated=undated,
+                holidays=holidays, today=today)
 
 
 def _timetables_today():
@@ -65,11 +65,22 @@ def _timetables_today():
 
 @app.get("/", response_class=HTMLResponse)
 def today(request: Request, child: int | None = None):
+    s = _sections(child)
+    holiday_kids = {h["child_id"] for h in s["holidays"]}
+    timetables = [t for t in _timetables_today()
+                  if t["child"]["id"] not in holiday_kids]
     return templates.TemplateResponse(request, "today.html", dict(
         active="today", children=db.children(), sel_child=child,
-        oauth_ready=auth.oauth_configured(), timetables=_timetables_today(),
-        done_today=db.items_done_on(date.today().isoformat(), child),
-        **_sections(child)))
+        oauth_ready=auth.oauth_configured(), timetables=timetables,
+        done_today_count=len(db.items_done_on(date.today().isoformat(), child)),
+        **s))
+
+
+@app.get("/finished", response_class=HTMLResponse)
+def finished(request: Request, child: int | None = None):
+    return templates.TemplateResponse(request, "finished.html", dict(
+        active="finished", children=db.children(), sel_child=child,
+        done=db.items_done(child), today=date.today().isoformat()))
 
 
 @app.get("/library", response_class=HTMLResponse)
@@ -88,12 +99,14 @@ def digest(request: Request, mode: str = "morning"):
     s = _sections()
     due_today = [i for i in s["soon"] if i["due_date"] == today_iso]
     due_tomorrow = [i for i in s["soon"] if i["due_date"] == tomorrow_iso]
+    holiday_kids = {h["child_id"] for h in s["holidays"]}
     return templates.TemplateResponse(request, "digest.html", dict(
         active="digest", mode=mode, children=db.children(),
-        overdue=s["overdue"], confirm=s["confirm"], due_today=due_today,
+        overdue=s["overdue"], holidays=s["holidays"], due_today=due_today,
         due_tomorrow=due_tomorrow, done_today=db.items_done_on(today_iso),
-        pending=len(s["overdue"]) + len(due_today),
-        timetables=_timetables_today(), today=today_iso))
+        timetables=[t for t in _timetables_today()
+                    if t["child"]["id"] not in holiday_kids],
+        today=today_iso))
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -163,21 +176,12 @@ def item_done(item_id: int):
 @app.post("/items/{item_id}/reopen")
 def item_reopen(item_id: int):
     db.update_item(item_id, status="open", done_at=None)
-    return RedirectResponse("/", 303)
+    return RedirectResponse("/finished", 303)
 
 
 @app.post("/items/{item_id}/dismiss")
 def item_dismiss(item_id: int):
     db.update_item(item_id, status="dismissed")
-    return RedirectResponse("/", 303)
-
-
-@app.post("/items/{item_id}/confirm")
-def item_confirm(item_id: int, due_date: str = Form("")):
-    fields = {"needs_confirm": 0}
-    if due_date:
-        fields["due_date"] = due_date
-    db.update_item(item_id, **fields)
     return RedirectResponse("/", 303)
 
 
