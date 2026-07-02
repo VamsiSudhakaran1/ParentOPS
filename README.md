@@ -26,14 +26,32 @@ thinking lives in `PLAN.md`; the original UI concept in `mockups/`.
 
 Requires Python 3.11+.
 
+**macOS / Linux:**
+
 ```bash
 git clone https://github.com/VamsiSudhakaran1/ParentOPS.git
 cd ParentOPS
-python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m app.seed_demo                               # sample data from real 5D circulars
 uvicorn app.main:app --port 8000
 ```
+
+**Windows (cmd):**
+
+```bat
+git clone https://github.com/VamsiSudhakaran1/ParentOPS.git
+cd ParentOPS
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python -m app.seed_demo
+python -m uvicorn app.main:app --port 8000
+```
+
+(PowerShell: activate with `.venv\Scripts\Activate.ps1`; if blocked, run
+`Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` once.
+The prompt shows `(.venv)` when the venv is active.)
 
 Open **http://localhost:8000**.
 
