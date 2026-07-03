@@ -70,7 +70,7 @@ object ClassroomApi {
                 posts.add(Post(
                     key = "$childEmail|announcement|${a.getString("id")}",
                     childEmail = childEmail, kind = "announcement", courseName = cname,
-                    title = text.lineSequence().firstOrNull()?.take(120) ?: "Announcement",
+                    title = Extract.headline(text),
                     body = text, link = a.optString("alternateLink"),
                     attachments = attachments(a.optJSONArray("materials")),
                     postedAt = a.optString("creationTime"),
