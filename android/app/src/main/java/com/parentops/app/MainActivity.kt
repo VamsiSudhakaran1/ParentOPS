@@ -79,7 +79,9 @@ class MainActivity : ComponentActivity() {
                     },
                     onAddChild = { signInLauncher.launch(GoogleAuthHelper.signInIntent(this)) },
                     onSync = { runSync() },
-                    onIngestShare = { childEmail -> ingestShare(childEmail) },
+                    onIngestShare = { childEmail, asTimetable ->
+                        ingestShare(childEmail, asTimetable)
+                    },
                     onDismissShare = { pendingShare = null },
                     onOpenLink = { url ->
                         if (!url.isNullOrBlank()) {
@@ -134,7 +136,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun ingestShare(childEmail: String?) {
+    private fun ingestShare(childEmail: String?, asTimetable: Boolean = false) {
         val text = pendingShare ?: return
         pendingShare = null
         // Works with zero children: create a manual child on the fly.
@@ -142,12 +144,29 @@ class MainActivity : ComponentActivity() {
             ?: data.children.firstOrNull()
             ?: Child(email = "manual-family", name = "Family",
                      color = CHILD_COLORS[0]).also { data.children.add(it) }
+
+        if (asTimetable) {
+            val grid = Extract.parseTimetableText(text)
+            if (grid != null) {
+                child.timetable = grid
+                Store.save(this, data)
+                data = data
+                Toast.makeText(this,
+                    "Timetable saved for ${child.name} — review it in Settings → Edit",
+                    Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this,
+                    "Couldn't read the table layout — enter it in Settings → Edit " +
+                    "(one line per day)", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+
         val key = "shared|${System.currentTimeMillis()}"
         val post = Post(
             key = key, childEmail = child.email, kind = "shared",
             courseName = "Shared",
-            title = text.lineSequence().firstOrNull { it.isNotBlank() }?.take(120)
-                ?: "Shared note",
+            title = Extract.headline(text),
             body = text, postedAt = Instant.now().toString())
         data.posts.add(0, post)
         val extracted = Extract.fromPost(post, child)

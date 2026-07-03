@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
@@ -62,7 +63,7 @@ fun App(
     onMutate: ((AppData) -> Unit) -> Unit,
     onAddChild: () -> Unit,
     onSync: () -> Unit,
-    onIngestShare: (String?) -> Unit,
+    onIngestShare: (String?, Boolean) -> Unit,
     onDismissShare: () -> Unit,
     onOpenLink: (String?) -> Unit,
 ) {
@@ -70,16 +71,24 @@ fun App(
     var selChild by remember { mutableStateOf<String?>(null) }
 
     if (pendingShare != null) {
+        var asTimetable by remember(pendingShare) { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = onDismissShare,
             title = { Text("Add to ParentOps") },
             text = {
                 Column {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { asTimetable = !asTimetable }) {
+                        Checkbox(checked = asTimetable,
+                            onCheckedChange = { asTimetable = it })
+                        Text("📅 This is a timetable", fontSize = 14.sp)
+                    }
                     if (data.children.size > 1) {
-                        Text("Whose is this?", fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp))
+                        Text(if (asTimetable) "Whose timetable?" else "Whose is this?",
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(vertical = 8.dp))
                         data.children.forEach { ch ->
-                            OutlinedButton(onClick = { onIngestShare(ch.email) },
+                            OutlinedButton(onClick = { onIngestShare(ch.email, asTimetable) },
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                                 Text(ch.name)
                             }
@@ -92,7 +101,7 @@ fun App(
             },
             confirmButton = {
                 if (data.children.size <= 1) {
-                    TextButton(onClick = { onIngestShare(null) }) { Text("Add") }
+                    TextButton(onClick = { onIngestShare(null, asTimetable) }) { Text("Add") }
                 }
             },
             dismissButton = {
@@ -179,34 +188,45 @@ private fun ItemCard(
         Row(Modifier.padding(12.dp)) {
             val overdue = it.dueDate != null && it.dueDate!! < today
             Column(
-                Modifier.width(56.dp)
+                Modifier.width(52.dp)
                     .background(
                         if (overdue) Color(0xFFFEF1F0) else Color(0xFFEEF0FE),
                         RoundedCornerShape(10.dp))
                     .padding(vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(dow(it.dueDate), fontWeight = FontWeight.ExtraBold,
+                Text(dow(it.dueDate), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
                     color = if (overdue) Color(0xFFD92D20) else Color(0xFF4653E8))
-                Text(it.dueDate?.takeLast(5) ?: "date", fontSize = 10.sp,
+                Text(it.dueDate?.takeLast(5) ?: "—", fontSize = 10.sp,
                     color = if (overdue) Color(0xFFD92D20) else Color(0xFF4653E8))
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(it.title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                it.detail?.let { d ->
-                    Text(d, fontSize = 12.sp, color = Color(0xFF6B7280))
+                Row(verticalAlignment = Alignment.Top) {
+                    Text(it.title, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                        modifier = Modifier.weight(1f))
+                    // Dismiss lives quietly in the corner, not in the button row
+                    Text("✕", fontSize = 14.sp, color = Color(0xFF9CA3AF),
+                        modifier = Modifier
+                            .clickable { onMutate { _ -> it.status = "dismissed" } }
+                            .padding(start = 8.dp, top = 2.dp))
                 }
-                it.checklist.forEachIndexed { idx, entry ->
+                it.detail?.let { d ->
+                    Text(d, fontSize = 12.5.sp, color = Color(0xFF4B5563),
+                        lineHeight = 17.sp, maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp))
+                }
+                it.checklist.forEach { entry ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = entry.done, onCheckedChange = { v ->
                             onMutate { entry.done = v }
-                        })
+                        }, modifier = Modifier.size(32.dp))
                         Text(entry.text, fontSize = 13.sp,
                             textDecoration = if (entry.done) TextDecoration.LineThrough else null,
                             color = if (entry.done) Color(0xFF6B7280) else Color.Unspecified)
                     }
                 }
-                Row(Modifier.padding(top = 6.dp),
+                Row(Modifier.padding(top = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     child?.let { c ->
                         Tag(c.name.substringBefore(" "), Color(c.color))
@@ -214,21 +234,24 @@ private fun ItemCard(
                     }
                     it.amount?.let { a -> Tag(a, Color(0xFF067647)); Spacer(Modifier.width(6.dp)) }
                     it.category?.takeIf { c -> c != "task" }?.let { c -> Tag(c, Color(0xFF6B7280)) }
-                }
-                Row(Modifier.padding(top = 8.dp)) {
-                    Button(onClick = {
-                        onMutate { d ->
-                            it.status = "done"; it.doneAt = LocalDate.now().toString()
-                        }
-                    }) { Text("Done ✓") }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.weight(1f))
                     if (postLink != null) {
-                        OutlinedButton(onClick = { onOpenLink(postLink) }) { Text("Original") }
-                        Spacer(Modifier.width(8.dp))
+                        Text("Original ↗", fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            color = Color(0xFF4653E8),
+                            modifier = Modifier
+                                .clickable { onOpenLink(postLink) }
+                                .padding(end = 10.dp))
                     }
-                    TextButton(onClick = { onMutate { _ -> it.status = "dismissed" } }) {
-                        Text("Dismiss", color = Color(0xFF6B7280))
-                    }
+                    Text("Done ✓", fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier
+                            .background(Color(0xFF4653E8), RoundedCornerShape(8.dp))
+                            .clickable {
+                                onMutate { _ ->
+                                    it.status = "done"; it.doneAt = LocalDate.now().toString()
+                                }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp))
                 }
             }
         }
@@ -249,20 +272,26 @@ private fun TodayScreen(
     onMutate: ((AppData) -> Unit) -> Unit, onOpenLink: (String?) -> Unit,
     onAddChild: () -> Unit,
 ) {
-    val today = LocalDate.now().toString()
-    val week = LocalDate.now().plusDays(7).toString()
+    val todayDate = LocalDate.now()
+    val today = todayDate.toString()
+    var selDate by remember { mutableStateOf(todayDate) }
+    var showOverdue by remember { mutableStateOf(false) }
+    var showUndated by remember { mutableStateOf(false) }
+
     val open = data.items.filter {
         it.status == "open" && (selChild == null || it.childEmail == selChild)
     }
-    val holidays = open.filter { it.category == "holiday" && it.dueDate == today }
+    val selIso = selDate.toString()
+    val onDay = open.filter { it.dueDate == selIso && it.category != "holiday" }
+    val holidays = open.filter { it.category == "holiday" && it.dueDate == selIso }
     val holidayKids = holidays.map { it.childEmail }.toSet()
-    val rest = open - holidays.toSet()
-    val overdue = rest.filter { it.dueDate != null && it.dueDate!! < today }
-    val soon = rest.filter { it.dueDate != null && it.dueDate!! in today..week }
-    val later = rest - overdue.toSet() - soon.toSet()
+    val overdue = open.filter {
+        it.dueDate != null && it.dueDate!! < today && it.category != "holiday"
+    }
+    val undated = open.filter { it.dueDate == null }
     val childOf = data.children.associateBy { it.email }
     val postOf = data.posts.associateBy { it.key }
-    val todayKey = Extract.WEEKDAY_KEYS[LocalDate.now().dayOfWeek.value - 1]
+    val dayKey = Extract.WEEKDAY_KEYS[selDate.dayOfWeek.value - 1]
 
     LazyColumn(Modifier.fillMaxSize()) {
         item { KidChips(data, selChild, onSelect) }
@@ -287,12 +316,42 @@ private fun TodayScreen(
             }
         }
 
+        // Calendar strip: pick a day, see that day. Today is preselected.
+        item {
+            Row(Modifier.horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 8.dp)) {
+                (-2..14).forEach { off ->
+                    val d = todayDate.plusDays(off.toLong())
+                    val sel = d == selDate
+                    Column(
+                        Modifier.padding(end = 6.dp)
+                            .background(
+                                when {
+                                    sel -> Color(0xFF4653E8)
+                                    d == todayDate -> Color(0xFFEEF0FE)
+                                    else -> Color.White
+                                },
+                                RoundedCornerShape(12.dp))
+                            .clickable { selDate = d }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(d.format(DateTimeFormatter.ofPattern("EEE")), fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (sel) Color.White else Color(0xFF6B7280))
+                        Text("${d.dayOfMonth}", fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (sel) Color.White else Color(0xFF1A1D21))
+                    }
+                }
+            }
+        }
+
         if (holidays.isNotEmpty()) {
             item {
                 Card(Modifier.fillMaxWidth().padding(12.dp, 8.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFF59E0B))) {
                     Column(Modifier.padding(14.dp)) {
-                        Text("🎉 Holiday today — no school", color = Color.White,
+                        Text("🎉 Holiday — no school", color = Color.White,
                             fontWeight = FontWeight.ExtraBold)
                         holidays.map { it.title }.distinct().forEach {
                             Text(it, color = Color.White, fontSize = 13.sp)
@@ -302,19 +361,23 @@ private fun TodayScreen(
             }
         }
 
+        // Timetable follows the selected day (today by default).
         val tt = data.children.filter {
             (selChild == null || it.email == selChild) &&
-            it.email !in holidayKids && it.timetable.containsKey(todayKey)
+            it.email !in holidayKids && it.timetable.containsKey(dayKey)
         }
         if (tt.isNotEmpty()) {
-            item { SectionTitle("Today's timetable") }
+            item {
+                SectionTitle(if (selDate == todayDate) "Today's timetable"
+                             else "Timetable — ${selDate.format(DF)}")
+            }
             tt.forEach { ch ->
                 item {
                     Row(Modifier.horizontalScroll(rememberScrollState())
                         .padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Tag(ch.name.substringBefore(" "), Color(ch.color))
-                        ch.timetable[todayKey]?.forEach { p ->
+                        ch.timetable[dayKey]?.forEach { p ->
                             Spacer(Modifier.width(6.dp))
                             Text(p, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                 modifier = Modifier
@@ -326,19 +389,63 @@ private fun TodayScreen(
             }
         }
 
-        fun section(title: String, list: List<ActionItem>, color: Color) {
-            if (list.isEmpty()) return
-            item { SectionTitle(title, color) }
-            list.sortedBy { it.dueDate ?: "9999" }.forEach { ai ->
-                item {
-                    ItemCard(ai, childOf[ai.childEmail], today, onMutate, onOpenLink,
-                        ai.postKey?.let { postOf[it]?.link })
+        // The selected day's items — the main content.
+        item {
+            SectionTitle(if (selDate == todayDate) "Due today"
+                         else "Due ${selDate.format(DF)}")
+        }
+        if (onDay.isEmpty()) {
+            item {
+                Text("Nothing due this day ✨", fontSize = 13.sp, color = Color(0xFF6B7280),
+                    modifier = Modifier.padding(horizontal = 16.dp))
+            }
+        }
+        onDay.forEach { ai ->
+            item {
+                ItemCard(ai, childOf[ai.childEmail], today, onMutate, onOpenLink,
+                    ai.postKey?.let { postOf[it]?.link })
+            }
+        }
+
+        // Overdue and undated stay out of the way until asked for.
+        if (overdue.isNotEmpty()) {
+            item {
+                Text(
+                    (if (showOverdue) "▾" else "▸") + " ⚠ ${overdue.size} overdue — " +
+                        (if (showOverdue) "hide" else "show"),
+                    color = Color(0xFFD92D20), fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                    modifier = Modifier
+                        .clickable { showOverdue = !showOverdue }
+                        .padding(16.dp, 12.dp))
+            }
+            if (showOverdue) {
+                overdue.sortedBy { it.dueDate }.forEach { ai ->
+                    item {
+                        ItemCard(ai, childOf[ai.childEmail], today, onMutate, onOpenLink,
+                            ai.postKey?.let { postOf[it]?.link })
+                    }
                 }
             }
         }
-        section("Overdue", overdue, Color(0xFFD92D20))
-        section("Next 7 days", soon, Color(0xFF6B7280))
-        section("Later / no date", later, Color(0xFF6B7280))
+        if (undated.isNotEmpty()) {
+            item {
+                Text(
+                    (if (showUndated) "▾" else "▸") + " 📌 ${undated.size} without a date — " +
+                        (if (showUndated) "hide" else "show"),
+                    color = Color(0xFF6B7280), fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                    modifier = Modifier
+                        .clickable { showUndated = !showUndated }
+                        .padding(16.dp, 4.dp))
+            }
+            if (showUndated) {
+                undated.forEach { ai ->
+                    item {
+                        ItemCard(ai, childOf[ai.childEmail], today, onMutate, onOpenLink,
+                            ai.postKey?.let { postOf[it]?.link })
+                    }
+                }
+            }
+        }
 
         val doneToday = data.items.count { it.status == "done" && it.doneAt == today }
         if (doneToday > 0) {
