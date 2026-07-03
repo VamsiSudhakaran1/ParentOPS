@@ -12,8 +12,8 @@ android {
         applicationId = "com.parentops.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.3.1"
+        versionCode = 5
+        versionName = "0.4.0"
     }
 
     // Shared keystore so every build (local or CI) has the same SHA-1 —

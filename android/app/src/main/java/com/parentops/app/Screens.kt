@@ -23,8 +23,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -46,10 +50,14 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 private val DF = DateTimeFormatter.ofPattern("EEE dd MMM")
+private val DDMON = DateTimeFormatter.ofPattern("dd-MMM-yyyy")
+private val FULLDAY = DateTimeFormatter.ofPattern("EEEE, dd-MMM-yyyy")
 private fun nice(iso: String?): String =
     try { LocalDate.parse(iso).format(DF) } catch (e: Exception) { "No date" }
 private fun dow(iso: String?): String =
@@ -266,6 +274,7 @@ private fun Tag(text: String, color: Color) {
             .padding(horizontal = 8.dp, vertical = 2.dp))
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodayScreen(
     data: AppData, selChild: String?, onSelect: (String?) -> Unit,
@@ -275,8 +284,7 @@ private fun TodayScreen(
     val todayDate = LocalDate.now()
     val today = todayDate.toString()
     var selDate by remember { mutableStateOf(todayDate) }
-    var showOverdue by remember { mutableStateOf(false) }
-    var showUndated by remember { mutableStateOf(false) }
+    var showPicker by remember { mutableStateOf(false) }
 
     val open = data.items.filter {
         it.status == "open" && (selChild == null || it.childEmail == selChild)
@@ -285,13 +293,47 @@ private fun TodayScreen(
     val onDay = open.filter { it.dueDate == selIso && it.category != "holiday" }
     val holidays = open.filter { it.category == "holiday" && it.dueDate == selIso }
     val holidayKids = holidays.map { it.childEmail }.toSet()
-    val overdue = open.filter {
-        it.dueDate != null && it.dueDate!! < today && it.category != "holiday"
+    // Everything actionable that isn't already shown for the selected day:
+    // overdue first, then upcoming submissions/tasks, undated last.
+    val todos = open.filter { it.category != "holiday" && it.dueDate != selIso }
+        .sortedWith(compareBy({ it.dueDate == null }, { it.dueDate ?: "9999-99-99" }))
+    val notices = data.posts.filter {
+        (selChild == null || it.childEmail == selChild) &&
+        it.postedAt.take(10) == selIso
     }
-    val undated = open.filter { it.dueDate == null }
     val childOf = data.children.associateBy { it.email }
     val postOf = data.posts.associateBy { it.key }
     val dayKey = Extract.WEEKDAY_KEYS[selDate.dayOfWeek.value - 1]
+
+    if (showPicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selDate.atStartOfDay(ZoneOffset.UTC)
+                .toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                // Past notices are browsable; future dates are disabled.
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val d = Instant.ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneOffset.UTC).toLocalDate()
+                    return !d.isAfter(LocalDate.now())
+                }
+            })
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let {
+                        selDate = Instant.ofEpochMilli(it)
+                            .atZone(ZoneOffset.UTC).toLocalDate()
+                    }
+                    showPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+            }) {
+            DatePicker(state = pickerState)
+        }
+    }
 
     LazyColumn(Modifier.fillMaxSize()) {
         item { KidChips(data, selChild, onSelect) }
@@ -316,39 +358,35 @@ private fun TodayScreen(
             }
         }
 
-        // Calendar strip: pick a day, see that day. Today is preselected.
+        // Date header: DD-Mon-YYYY, tap to open the calendar picker.
         item {
-            Row(Modifier.horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 8.dp)) {
-                (-2..14).forEach { off ->
-                    val d = todayDate.plusDays(off.toLong())
-                    val sel = d == selDate
-                    Column(
-                        Modifier.padding(end = 6.dp)
-                            .background(
-                                when {
-                                    sel -> Color(0xFF4653E8)
-                                    d == todayDate -> Color(0xFFEEF0FE)
-                                    else -> Color.White
-                                },
-                                RoundedCornerShape(12.dp))
-                            .clickable { selDate = d }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(d.format(DateTimeFormatter.ofPattern("EEE")), fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (sel) Color.White else Color(0xFF6B7280))
-                        Text("${d.dayOfMonth}", fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (sel) Color.White else Color(0xFF1A1D21))
+            Row(Modifier.fillMaxWidth().padding(16.dp, 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.clickable { showPicker = true }) {
+                    Text(selDate.format(DDMON), fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold)
+                    Text(selDate.format(DateTimeFormatter.ofPattern("EEEE")) +
+                         if (selDate == todayDate) " · Today" else "",
+                        fontSize = 12.sp, color = Color(0xFF6B7280))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (selDate != todayDate) {
+                        Text("Today", fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            color = Color(0xFF4653E8),
+                            modifier = Modifier
+                                .clickable { selDate = todayDate }
+                                .padding(end = 12.dp))
                     }
+                    Text("📅", fontSize = 22.sp,
+                        modifier = Modifier.clickable { showPicker = true })
                 }
             }
         }
 
         if (holidays.isNotEmpty()) {
             item {
-                Card(Modifier.fillMaxWidth().padding(12.dp, 8.dp),
+                Card(Modifier.fillMaxWidth().padding(12.dp, 4.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFF59E0B))) {
                     Column(Modifier.padding(14.dp)) {
                         Text("🎉 Holiday — no school", color = Color.White,
@@ -361,16 +399,13 @@ private fun TodayScreen(
             }
         }
 
-        // Timetable follows the selected day (today by default).
+        // Timetable for the selected day's weekday.
         val tt = data.children.filter {
             (selChild == null || it.email == selChild) &&
             it.email !in holidayKids && it.timetable.containsKey(dayKey)
         }
         if (tt.isNotEmpty()) {
-            item {
-                SectionTitle(if (selDate == todayDate) "Today's timetable"
-                             else "Timetable — ${selDate.format(DF)}")
-            }
+            item { SectionTitle("Timetable") }
             tt.forEach { ch ->
                 item {
                     Row(Modifier.horizontalScroll(rememberScrollState())
@@ -389,14 +424,11 @@ private fun TodayScreen(
             }
         }
 
-        // The selected day's items — the main content.
-        item {
-            SectionTitle(if (selDate == todayDate) "Due today"
-                         else "Due ${selDate.format(DF)}")
-        }
-        if (onDay.isEmpty()) {
+        // 1. Events of the selected day.
+        item { SectionTitle("Events — ${selDate.format(DDMON)}") }
+        if (onDay.isEmpty() && holidays.isEmpty()) {
             item {
-                Text("Nothing due this day ✨", fontSize = 13.sp, color = Color(0xFF6B7280),
+                Text("No events this day ✨", fontSize = 13.sp, color = Color(0xFF6B7280),
                     modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
@@ -407,43 +439,51 @@ private fun TodayScreen(
             }
         }
 
-        // Overdue and undated stay out of the way until asked for.
-        if (overdue.isNotEmpty()) {
-            item {
-                Text(
-                    (if (showOverdue) "▾" else "▸") + " ⚠ ${overdue.size} overdue — " +
-                        (if (showOverdue) "hide" else "show"),
-                    color = Color(0xFFD92D20), fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                    modifier = Modifier
-                        .clickable { showOverdue = !showOverdue }
-                        .padding(16.dp, 12.dp))
-            }
-            if (showOverdue) {
-                overdue.sortedBy { it.dueDate }.forEach { ai ->
-                    item {
-                        ItemCard(ai, childOf[ai.childEmail], today, onMutate, onOpenLink,
-                            ai.postKey?.let { postOf[it]?.link })
+        // 2. Notices/messages posted on the selected day (browse past days).
+        if (notices.isNotEmpty()) {
+            item { SectionTitle("Notices posted this day") }
+            notices.forEach { p ->
+                item {
+                    Card(Modifier.fillMaxWidth().padding(12.dp, 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                        Column(Modifier
+                            .clickable { onOpenLink(p.link) }
+                            .padding(12.dp)) {
+                            Text(
+                                (when (p.kind) {
+                                    "announcement" -> "📣 "
+                                    "courseWork" -> "📝 "
+                                    "material" -> "📘 "
+                                    else -> "📎 "
+                                }) + p.title,
+                                fontWeight = FontWeight.Bold, fontSize = 13.5.sp,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Row(Modifier.padding(top = 4.dp)) {
+                                childOf[p.childEmail]?.let { c ->
+                                    Tag(c.name.substringBefore(" "), Color(c.color))
+                                    Spacer(Modifier.width(6.dp))
+                                }
+                                Tag(p.courseName, Color(0xFF6B7280))
+                            }
+                        }
                     }
                 }
             }
         }
-        if (undated.isNotEmpty()) {
+
+        // 3. To-Do: everything open — submissions, messages, announcements.
+        item { SectionTitle("To-Do", Color(0xFF4653E8)) }
+        if (todos.isEmpty()) {
             item {
-                Text(
-                    (if (showUndated) "▾" else "▸") + " 📌 ${undated.size} without a date — " +
-                        (if (showUndated) "hide" else "show"),
-                    color = Color(0xFF6B7280), fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                    modifier = Modifier
-                        .clickable { showUndated = !showUndated }
-                        .padding(16.dp, 4.dp))
+                Text("All clear — nothing pending 🎉", fontSize = 13.sp,
+                    color = Color(0xFF6B7280),
+                    modifier = Modifier.padding(horizontal = 16.dp))
             }
-            if (showUndated) {
-                undated.forEach { ai ->
-                    item {
-                        ItemCard(ai, childOf[ai.childEmail], today, onMutate, onOpenLink,
-                            ai.postKey?.let { postOf[it]?.link })
-                    }
-                }
+        }
+        todos.forEach { ai ->
+            item {
+                ItemCard(ai, childOf[ai.childEmail], today, onMutate, onOpenLink,
+                    ai.postKey?.let { postOf[it]?.link })
             }
         }
 
@@ -481,6 +521,11 @@ private fun DigestScreen(
                     enabled = !evening) { Text("🌙 Evening") }
             }
         }
+        item {
+            Text(LocalDate.now().format(FULLDAY),
+                fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 4.dp))
+        }
         fun block(title: String, list: List<ActionItem>, color: Color = Color(0xFF6B7280)) {
             if (list.isEmpty()) return
             item { SectionTitle(title, color) }
@@ -492,9 +537,9 @@ private fun DigestScreen(
             }
         }
         if (!evening) {
+            block("Events today", open.filter { it.dueDate == today })
             block("Carried over", open.filter { it.dueDate != null && it.dueDate!! < today },
                 Color(0xFFD92D20))
-            block("Due today", open.filter { it.dueDate == today })
         } else {
             val doneToday = data.items.filter { it.status == "done" && it.doneAt == today }
             item { SectionTitle("Done today — ${doneToday.size}", Color(0xFF067647)) }
@@ -655,7 +700,7 @@ private fun SettingsScreen(
                             Text(ch.name, fontWeight = FontWeight.Bold)
                             Text(ch.email, fontSize = 12.sp, color = Color(0xFF6B7280))
                         }
-                        TextButton(onClick = { editChild = ch }) { Text("Edit") }
+                        TextButton(onClick = { editChild = ch }) { Text("Timetable ✏️") }
                         TextButton(onClick = {
                             onMutate { d ->
                                 d.children.remove(ch)
