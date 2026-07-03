@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
     private var data by mutableStateOf(AppData(), neverEqualPolicy())
     private var syncing by mutableStateOf(false)
     private var pendingShare by mutableStateOf<String?>(null)
+    private var pendingOcrLines: List<OcrLine>? = null
 
     private val signInLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()) { res ->
@@ -82,7 +83,7 @@ class MainActivity : ComponentActivity() {
                     onIngestShare = { childEmail, asTimetable ->
                         ingestShare(childEmail, asTimetable)
                     },
-                    onDismissShare = { pendingShare = null },
+                    onDismissShare = { pendingShare = null; pendingOcrLines = null },
                     onOpenLink = { url ->
                         if (!url.isNullOrBlank()) {
                             try {
@@ -104,7 +105,10 @@ class MainActivity : ComponentActivity() {
     private fun handleShare(intent: Intent?) {
         if (intent?.action != Intent.ACTION_SEND) return
         if (intent.type == "text/plain") {
-            intent.getStringExtra(Intent.EXTRA_TEXT)?.let { pendingShare = it }
+            intent.getStringExtra(Intent.EXTRA_TEXT)?.let {
+                pendingOcrLines = null
+                pendingShare = it
+            }
             return
         }
         if (intent.type?.startsWith("image/") == true) {
@@ -124,6 +128,15 @@ class MainActivity : ComponentActivity() {
                             Toast.makeText(this, "Couldn't read any text in that image",
                                 Toast.LENGTH_LONG).show()
                         } else {
+                            // Keep line positions so a timetable grid can be
+                            // reconstructed spatially, not in reading order.
+                            pendingOcrLines = result.textBlocks.flatMap { b ->
+                                b.lines.map { ln ->
+                                    val r = ln.boundingBox
+                                    OcrLine(ln.text, r?.left ?: 0, r?.top ?: 0,
+                                            r?.right ?: 0, r?.bottom ?: 0)
+                                }
+                            }
                             pendingShare = result.text
                         }
                     }
@@ -139,6 +152,7 @@ class MainActivity : ComponentActivity() {
     private fun ingestShare(childEmail: String?, asTimetable: Boolean = false) {
         val text = pendingShare ?: return
         pendingShare = null
+        if (!asTimetable) pendingOcrLines = null
         // Works with zero children: create a manual child on the fly.
         val child = data.children.find { it.email == childEmail }
             ?: data.children.firstOrNull()
@@ -146,7 +160,10 @@ class MainActivity : ComponentActivity() {
                      color = CHILD_COLORS[0]).also { data.children.add(it) }
 
         if (asTimetable) {
-            val grid = Extract.parseTimetableText(text)
+            // Positional grid reconstruction first; text-order parse as fallback.
+            val grid = pendingOcrLines?.let { TimetableOcr.parse(it) }
+                ?: Extract.parseTimetableText(text)
+            pendingOcrLines = null
             if (grid != null) {
                 child.timetable = grid
                 Store.save(this, data)

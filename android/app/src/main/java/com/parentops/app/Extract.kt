@@ -131,7 +131,7 @@ object Extract {
             checklist = checklist))
     }
 
-    private val DAY_TOKENS = buildMap {
+    internal val DAY_TOKENS = buildMap {
         for ((i, key) in WEEKDAY_KEYS.withIndex()) {
             put(key, key)
             put(key.take(2), key)
